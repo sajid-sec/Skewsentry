@@ -9,3 +9,6 @@ __pycache__/
 dist/
 build/
 .pytest_cache/
+demo_*.csv
+alerts.json
+alerts.csv
