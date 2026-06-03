@@ -257,9 +257,20 @@ def main():
     else:  # terminal
         print_rich_terminal(alerts, summary, window_results, verbose=args.verbose)
 
-    # ── Plot (placeholder until Step 09) ─────────────────────────────────────
+    # ── Plot ─────────────────────────────────────────────────────────────────
     if args.plot:
-        console.print("[bold yellow][!] --plot requires Step 09 (visualizer.py). Coming soon.[/bold yellow]")
+        from visualizer import generate_chart
+        chart_out = args.outfile if args.outfile and args.outfile.endswith('.png') else None
+        generate_chart(
+            window_results=window_results,
+            alerts=alerts,
+            outfile=chart_out,
+            show=False
+        )
+        if chart_out:
+            console.print(f"[bold green][+][/bold green] Chart saved to [cyan]{chart_out}[/cyan]")
+        else:
+            console.print(f"[bold green][+][/bold green] Chart saved to [cyan]skewsentry_chart.png[/cyan]")
 
     return 0
 
