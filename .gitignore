@@ -12,3 +12,7 @@ build/
 demo_*.csv
 alerts.json
 alerts.csv
+chart_simple.png
+chart_simple.png
+skewsentry_chart.png
+test_chart.png
