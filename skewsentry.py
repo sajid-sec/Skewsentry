@@ -21,9 +21,10 @@ import csv as csv_module
 import random
 from datetime import datetime, timedelta
 
-from parser  import parse_log
-from window  import run_window_engine
-from alerter import process_alerts, summarize_alerts
+from parser   import parse_log
+from window   import run_window_engine
+from alerter  import process_alerts, summarize_alerts
+from reporter import print_rich_terminal, make_progress, console
 
 
 # ─── Sample log generator ─────────────────────────────────────────────────────
@@ -38,23 +39,19 @@ def generate_sample(attack_type: str, outfile: str, duration_minutes: int = 120)
     - normal:            clean baseline with no anomalies
 
     Output format: timestamp,event_count
-    This is essential for demos, README, and testing without real log access.
     """
     rows = []
     base_time = datetime(2024, 1, 15, 8, 0, 0)
 
     for minute in range(duration_minutes):
         ts = base_time + timedelta(minutes=minute)
-        # Baseline: 5-15 events per minute (normal web traffic)
         count = random.randint(5, 15)
 
         if attack_type == 'brute_force':
-            # Attack window: minutes 60-75 — massive spike
             if 60 <= minute <= 75:
                 count = random.randint(150, 300)
 
         elif attack_type == 'slow_exfiltration':
-            # Attack window: minutes 60-90 — traffic drops to near zero
             if 60 <= minute <= 90:
                 count = random.randint(0, 2)
 
@@ -65,8 +62,9 @@ def generate_sample(attack_type: str, outfile: str, duration_minutes: int = 120)
         writer.writeheader()
         writer.writerows(rows)
 
-    print(f"[+] Generated {duration_minutes}-minute '{attack_type}' sample → {outfile}")
-    print(f"    {duration_minutes} rows, attack window embedded in minutes 60-75/90")
+    console.print(f"[bold green][+][/bold green] Generated {duration_minutes}-minute "
+                  f"'[cyan]{attack_type}[/cyan]' sample → [cyan]{outfile}[/cyan]")
+    console.print(f"    {duration_minutes} rows, attack window embedded in minutes 60-75/90")
 
 
 # ─── Output writers ───────────────────────────────────────────────────────────
@@ -82,13 +80,13 @@ def write_json(alerts: list[dict], summary: dict, outfile: str):
     }
     with open(outfile, 'w') as f:
         json.dump(output, f, indent=2, default=str)
-    print(f"[+] JSON output written to {outfile}")
+    console.print(f"[bold green][+][/bold green] JSON output written to [cyan]{outfile}[/cyan]")
 
 
 def write_csv_output(alerts: list[dict], outfile: str):
     """Writes alerts to a CSV file."""
     if not alerts:
-        print("[!] No alerts to write.")
+        console.print("[bold yellow][!] No alerts to write.[/bold yellow]")
         return
     with open(outfile, 'w', newline='') as f:
         writer = csv_module.DictWriter(f, fieldnames=alerts[0].keys())
@@ -97,47 +95,7 @@ def write_csv_output(alerts: list[dict], outfile: str):
             {k: str(v) if isinstance(v, datetime) else v for k, v in a.items()}
             for a in alerts
         ])
-    print(f"[+] CSV output written to {outfile}")
-
-
-def print_terminal(alerts: list[dict], summary: dict, verbose: bool, window_results: list[dict]):
-    """
-    Plain terminal output (no rich yet — that's Step 08).
-    Verbose mode prints every window result, not just alerts.
-    """
-    print("\n" + "="*60)
-    print("  SKEWSENTRY — ANOMALY DETECTION RESULTS")
-    print("="*60)
-
-    if verbose:
-        print(f"\n[VERBOSE] Total windows analyzed: {len(window_results)}")
-        for r in window_results:
-            sk = r.get('pearson_skew')
-            sk_str = f"{sk:.4f}" if sk is not None else "N/A"
-            print(f"  {r['timestamp']}  sk={sk_str:>8}  mean={r['mean']:.1f}  n={r['n']}")
-
-    print(f"\n[SUMMARY]")
-    print(f"  Total alerts   : {summary['total']}")
-    print(f"  Critical       : {summary['critical']}")
-    print(f"  Warning        : {summary['warning']}")
-    print(f"  Info           : {summary['info']}")
-    print(f"  Brute Force    : {summary['brute_force']}")
-    print(f"  Slow Exfil     : {summary['slow_exfiltration']}")
-
-    if not alerts:
-        print("\n[OK] No anomalies detected. Traffic appears normal.")
-        return
-
-    print(f"\n[ALERTS]")
-    for a in alerts:
-        ts  = a['timestamp']
-        sev = a['severity']
-        atype = a['alert_type']
-        sk  = a['skewness']
-        indicator = {'CRITICAL': '[!!!]', 'WARNING': '[!! ]', 'INFO': '[!  ]'}.get(sev, '[?]')
-        print(f"  {indicator} {ts}  {sev:<8}  {atype:<20}  sk={sk:.4f}")
-
-    print("="*60 + "\n")
+    console.print(f"[bold green][+][/bold green] CSV output written to [cyan]{outfile}[/cyan]")
 
 
 # ─── Argument parser ──────────────────────────────────────────────────────────
@@ -158,22 +116,17 @@ examples:
         """
     )
 
-    # Positional — optional because --generate-sample doesn't need a logfile
     parser.add_argument(
         'logfile',
         nargs='?',
         help='Path to log file to analyze (Apache, Nginx, SSH auth.log, or CSV)'
     )
-
-    # Format
     parser.add_argument(
         '--format', '-f',
         choices=['apache', 'ssh', 'csv', 'auto'],
         default='auto',
         help='Log format (default: auto-detect)'
     )
-
-    # Window parameters
     parser.add_argument(
         '--window', '-w',
         type=int,
@@ -188,8 +141,6 @@ examples:
         metavar='INT',
         help='Window step size in minutes (default: 1)'
     )
-
-    # Alert threshold
     parser.add_argument(
         '--threshold', '-t',
         type=float,
@@ -197,8 +148,6 @@ examples:
         metavar='FLOAT',
         help='Skewness threshold for WARNING alerts (default: 1.5)'
     )
-
-    # Output format
     parser.add_argument(
         '--output', '-o',
         choices=['terminal', 'json', 'csv'],
@@ -210,8 +159,6 @@ examples:
         metavar='PATH',
         help='Output file path for --output json/csv, or sample file for --generate-sample'
     )
-
-    # Flags
     parser.add_argument(
         '--plot',
         action='store_true',
@@ -222,8 +169,6 @@ examples:
         action='store_true',
         help='Print every window result, not just alerts'
     )
-
-    # Sample generator
     parser.add_argument(
         '--generate-sample',
         action='store_true',
@@ -256,34 +201,46 @@ def main():
         parser.error("logfile is required unless --generate-sample is used.")
 
     if not os.path.exists(args.logfile):
-        print(f"[ERROR] File not found: {args.logfile}", file=sys.stderr)
+        console.print(f"[bold red][ERROR] File not found: {args.logfile}[/bold red]")
         sys.exit(1)
 
-    print(f"[*] Parsing: {args.logfile}  (format={args.format})")
+    console.print(f"[bold blue][*][/bold blue] Parsing: [cyan]{args.logfile}[/cyan]  "
+                  f"(format={args.format})")
+
     events = parse_log(args.logfile, fmt=args.format)
 
     if not events:
-        print("[!] No events parsed. Check file format or use --format explicitly.")
+        console.print("[bold red][!] No events parsed. Check file format or "
+                      "use --format explicitly.[/bold red]")
         sys.exit(1)
 
-    print(f"[*] Parsed {len(events)} events. Running window engine "
-          f"(window={args.window}min, step={args.step}min)...")
+    console.print(f"[bold blue][*][/bold blue] Parsed [bold]{len(events)}[/bold] events.")
 
-    window_results = run_window_engine(
-        events,
-        bucket_minutes=1,
-        window_size=args.window,
-        step_size=args.step
-    )
+    with make_progress() as progress:
+        task = progress.add_task(
+            f"Running window engine (size={args.window}min, step={args.step}min)...",
+            total=None
+        )
+        window_results = run_window_engine(
+            events,
+            bucket_minutes=1,
+            window_size=args.window,
+            step_size=args.step
+        )
+        progress.advance(task)
 
     if not window_results:
-        print("[!] Not enough data to fill a single window. "
-              f"Need at least {args.window} minutes of logs. "
-              "Try --window with a smaller value.")
+        console.print(
+            f"[bold red][!] Not enough data for a single window. "
+            f"Need at least {args.window} minutes of logs. "
+            f"Try --window with a smaller value.[/bold red]"
+        )
         sys.exit(1)
 
-    print(f"[*] Analyzed {len(window_results)} windows. Running alert classifier "
-          f"(threshold={args.threshold})...")
+    console.print(
+        f"[bold blue][*][/bold blue] Analyzed [bold]{len(window_results)}[/bold] windows. "
+        f"Running alert classifier (threshold={args.threshold})..."
+    )
 
     alerts  = process_alerts(window_results, threshold=args.threshold)
     summary = summarize_alerts(alerts)
@@ -298,11 +255,11 @@ def main():
         write_csv_output(alerts, outfile)
 
     else:  # terminal
-        print_terminal(alerts, summary, args.verbose, window_results)
+        print_rich_terminal(alerts, summary, window_results, verbose=args.verbose)
 
     # ── Plot (placeholder until Step 09) ─────────────────────────────────────
     if args.plot:
-        print("[!] --plot requires Step 09 (visualizer.py). Coming soon.")
+        console.print("[bold yellow][!] --plot requires Step 09 (visualizer.py). Coming soon.[/bold yellow]")
 
     return 0
 
