@@ -152,25 +152,27 @@ BRUTE_FORCE   WARNING   sk=+0.6547   2026-06-06 17:37:00
 ---
 
 ## Project Structure
+```
 skewsentry/
-├── skewsentry.py      # CLI entry point
-├── analyzer.py        # Pearson + Fisher skewness math
-├── parser.py          # Apache / SSH / CSV log parsers
-├── window.py          # Sliding window engine (collections.deque)
-├── alerter.py         # Alert classification + cooldown
-├── reporter.py        # Rich terminal output
-├── visualizer.py      # Matplotlib two-panel chart
+├── skewsentry.py          # CLI entry point
+├── analyzer.py            # Pearson + Fisher skewness math
+├── parser.py              # Apache / SSH / CSV log parsers
+├── window.py              # Sliding window engine (collections.deque)
+├── alerter.py             # Alert classification + cooldown
+├── reporter.py            # Rich terminal output
+├── visualizer.py          # Matplotlib two-panel chart
 ├── tests/
-│   ├── test_analyzer.py      # Unit tests: skewness math
-│   ├── test_parser.py        # Unit tests: log parsers
-│   ├── test_window.py        # Unit tests: window engine
-│   ├── test_alerter.py       # Unit tests: alert logic
-│   └── test_integration.py   # Ground truth: attack injection tests
+│   ├── test_analyzer.py   # Unit tests: skewness math
+│   ├── test_parser.py     # Unit tests: log parsers
+│   ├── test_window.py     # Unit tests: window engine
+│   ├── test_alerter.py    # Unit tests: alert logic
+│   └── test_integration.py  # Ground truth: attack injection tests
 ├── sample_logs/
 ├── requirements.txt
 └── README.md
-**Test coverage:** 68 tests, 0 failures across all modules and integration scenarios.
+```
 
+**Test coverage:** 68 tests, 0 failures across all modules and integration scenarios.
 ---
 
 ## Limitations & Future Work
